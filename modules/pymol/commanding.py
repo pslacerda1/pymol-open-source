@@ -739,7 +739,7 @@ SEE ALSO
         def inner(*args, **kwargs):
             caller = traceback.extract_stack(limit=2)[0].filename
             # It was called from command line or pml script, so parse arguments
-            if caller.endswith("pymol/parser.py"):
+            if caller == _parser_filename:
                 kwargs = {**kwargs, **dict(zip(args2_, args))}
                 kwargs.pop("_self", None)
                 new_kwargs = {}
@@ -747,13 +747,7 @@ SEE ALSO
                     if var in kwargs:
                         value = kwargs[var]
                         new_kwargs[var] = _into_types(type, value)
-                final_kwargs = {}
-                for k, v in kwargs_.items():
-                    final_kwargs[k] = v
-                for k, v in new_kwargs.items():
-                    if k not in final_kwargs:
-                        final_kwargs[k] = v
-                return function(**final_kwargs)
+                return function(**new_kwargs)
 
             # It was called from Python, so pass the arguments as is
             else:
