@@ -754,8 +754,8 @@ SEE ALSO
             # It was called from Python, so pass the arguments as is
             else:
                 return function(*args, **kwargs)
+        
         inner.__arg_docs = parse_documentation(function)
-
         _self.keyword[name] = [inner, 0,0,',',parsing.STRICT]
         return inner
 
