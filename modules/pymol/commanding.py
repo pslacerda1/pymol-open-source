@@ -614,7 +614,7 @@ SEE ALSO
             elif value.lower() in ["no", "0", "false", "off", "n"]:
                 return False
             else:
-                raise pymol.CmdException("Invalid boolean value: %s" % value)
+                raise pymol.CmdException(f"Invalid boolean value: {value}")
         
         elif isinstance(type, builtins.type):
             return type(value)
@@ -637,7 +637,7 @@ SEE ALSO
                     except:
                         found = False
                 if not found:
-                    raise pymol.CmdException("Union was not able to cast %s" % value)
+                    raise pymol.CmdException(f"Union was not able to cast {value}")
                     
             elif issubclass(list, origin):
                 args = get_args(type)
@@ -647,6 +647,11 @@ SEE ALSO
                     f = lambda x: x
                 return [f(i) for i in shlex.split(value)]
         
+        elif issubclass(type, Enum):
+            if value in type:
+                return type(value)
+            else:
+                raise pymol.CmdException(f"Invalid value for enum {type.__name__}: {value}")
         # elif value is None:
         #     origin = get_origin(type)
         #     if origin is None:
@@ -659,7 +664,7 @@ SEE ALSO
         elif isinstance(type, str):
             return str(value)
 
-        raise pymol.CmdException(f"Unsupported argument type {type}")
+        raise pymol.CmdException(f"Unsupported argument type annotation {type}")
                     
     def parse_documentation(func):
         source = inspect.getsource(func)

@@ -1,15 +1,17 @@
 from pymol import cmd
 from typing import List, Union, Any, Tuple
 from pathlib import Path
+from enum import StrEnum
 
-def test_new_command_docstring():
+
+def test_docstring():
     @cmd.new_command
     def func1():
         """docstring"""
     assert func1.__doc__ == "docstring"
 
 
-def test_new_command_bool(capsys):
+def test_bool(capsys):
     @cmd.new_command
     def func2(a: bool, b: bool):
         assert a
@@ -20,7 +22,7 @@ def test_new_command_bool(capsys):
     assert out == '' and err == ''
 
 
-def test_new_command_generic(capsys):
+def test_generic(capsys):
     @cmd.new_command
     def func3(
         nullable_point: Tuple[float, float, float],
@@ -39,7 +41,7 @@ def test_new_command_generic(capsys):
     out, err = capsys.readouterr()
     assert out + err == ''
 
-def test_new_command_path(capsys):
+def test_path(capsys):
     @cmd.new_command
     def func4(dirname: Path = Path('.')):
         assert dirname.exists()
@@ -48,7 +50,7 @@ def test_new_command_path(capsys):
     out, err = capsys.readouterr()
     assert out + err == ''
 
-def test_new_command_any(capsys):
+def test_any(capsys):
     @cmd.new_command
     def func5(old_style: Any):
         assert old_style != "RuntimeError"
@@ -57,7 +59,7 @@ def test_new_command_any(capsys):
     out, err = capsys.readouterr()
     assert 'AssertionError' in out+err
 
-def test_new_command_list(capsys):
+def test_list(capsys):
     @cmd.new_command
     def func6(a: List):
         assert a[1] == "2"
@@ -72,7 +74,7 @@ def test_new_command_list(capsys):
     out, err = capsys.readouterr()
     assert out + err == ''
 
-def test_new_command_tuple(capsys):
+def test_tuple(capsys):
     @cmd.new_command
     def func8(a: Tuple[str, int]):
         assert a == ("fooo", 42)
@@ -104,9 +106,21 @@ def test_parse_docs():
     assert func9.__annotations__['foo'] == int
     assert func9.__annotations__['bar'] == Tuple[str, int]
 
-def test_new_command_default():
+def test_default(capsys):
     @cmd.new_command
     def func10(a: str="sele"):
-        assert a == "a"
-    func10("a")
-    cmd.do('func10 a')
+        assert a == "sele"
+    cmd.do('func10')
+    out, err = capsys.readouterr()
+    assert out + err == ''
+
+def test_str_enum(capsys):
+    class E(StrEnum):
+        A = "a"
+    @cmd.new_command
+    def func11(e: E):
+        assert e == E.A
+        assert isinstance(e, E)
+    cmd.do('func11 a')
+    out, err = capsys.readouterr()
+    assert out + err == ''
