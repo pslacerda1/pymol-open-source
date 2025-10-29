@@ -318,6 +318,11 @@ void SceneRender(PyMOLGlobals* G, const SceneRenderInfo& renderInfo)
     targetImage.framebuffer = renderInfo.offscreen
                                   ? G->ShaderMgr->offscreen_ortho_rt
                                   : G->ShaderMgr->topLevelConfig.framebuffer;
+
+    if (renderInfo.pick != nullptr || renderInfo.sceneMultipick != nullptr) {
+      targetImage.framebuffer = CShaderMgr::OpenGLDefaultFramebufferID;
+    }
+
     if (targetImage.framebuffer == CShaderMgr::OpenGLDefaultFramebufferID) {
       targetImage.drawBuffer = render_buffer;
     }
