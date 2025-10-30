@@ -82,30 +82,6 @@ def test_tuple(capsys):
     out, err = capsys.readouterr()
     assert out + err == ''
 
-def test_parse_docs():
-    @cmd.new_command
-    def func9(
-        # multiline
-        # documentation works
-        foo: int, # inline
-        a: str,
-        # bar are strings
-        bar: Tuple[str, int], # continued...
-        b: Any = 10, # The new old age
-        # aaaa
-        c: Any = 'a' # b
-    ):
-        "main description"
-        pass
-
-    assert func9.__arg_docs['foo'] == "multiline documentation works inline"
-    assert func9.__arg_docs['a'] == ""
-    assert func9.__arg_docs['bar'] == "bar are strings continued..."
-    assert func9.__arg_docs['b'] == 'The new old age'
-    assert func9.__arg_docs['c'] == 'aaaa b'
-    assert func9.__annotations__['foo'] == int
-    assert func9.__annotations__['bar'] == Tuple[str, int]
-
 def test_default(capsys):
     @cmd.new_command
     def func10(a: str="sele"):

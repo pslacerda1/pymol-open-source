@@ -652,63 +652,11 @@ SEE ALSO
                 return type(value)
             else:
                 raise pymol.CmdException(f"Invalid value for enum {type.__name__}: {value}")
-        # elif value is None:
-        #     origin = get_origin(type)
-        #     if origin is None:
-        #         return None
-        #     else:
-        #         return _into_types(origin)
-        #         for arg in get_args(origin):
-        #         return _into_types(get_args(origin), value)
         
         elif isinstance(type, str):
             return str(value)
 
         raise pymol.CmdException(f"Unsupported argument type annotation {type}")
-                    
-    def parse_documentation(func):
-        source = inspect.getsource(func)
-        tokens = tokenize.tokenize(BytesIO(source.encode('utf-8')).readline)
-        tokens = list(tokens)
-        comments = []
-        params = {}
-        i = -1
-        started = False
-        while True:
-            i += 1
-            if tokens[i].string == "def":
-                while tokens[i].string == "(":
-                    i += 1
-                started = True
-                continue
-            if not started:
-                continue
-            if tokens[i].string == "->":
-                break
-            if tokens[i].type == tokenize.NEWLINE:
-                break
-            if tokens[i].string == ")":
-                break
-            if tokens[i].type == tokenize.COMMENT:
-                comments.append(tokens[i].string)
-                continue
-            if tokens[i].type == tokenize.NAME and tokens[i+1].string == ":":
-                name = tokens[i].string
-                name_line = tokens[i].line
-                i += 1
-                while not (tokens[i].type == tokenize.NAME and tokens[i+1].string == ":"):
-                    if tokens[i].type == tokenize.COMMENT and tokens[i].line == name_line:
-                        comments.append(tokens[i].string)
-                        break
-                    elif tokens[i].type == tokenize.NEWLINE:
-                        break
-                    i += 1
-                else:
-                    i -= 3
-                docs = ' '.join(c[1:].strip() for c in comments)
-                params[name] = docs
-                comments = []
-        return params
 
 
     def new_command(name, function=None, _self=cmd):
@@ -737,10 +685,9 @@ SEE ALSO
         # Inner function that will be callable every time the command is executed
         @wraps(function)
         def inner(*args, **kwargs):
-            frame = traceback.format_stack()[-2]
-            caller = frame.split("\"", maxsplit=2)[1]
+            caller = traceback.extract_stack(limit=2)[0].filename
             # It was called from command line or pml script, so parse arguments
-            if caller.endswith("pymol/parser.py"):
+            if caller == _parser_filename:
                 kwargs = {**kwargs, **dict(zip(args2_, args))}
                 kwargs.pop("_self", None)
                 new_kwargs = {}
@@ -760,8 +707,11 @@ SEE ALSO
             else:
                 return function(*args, **kwargs)
         
-        inner.__arg_docs = parse_documentation(function)
         _self.keyword[name] = [inner, 0,0,',',parsing.STRICT]
+        
+        # Accessor to the original function so bypass the stack extraction.
+        # The purpose is optimization (loops, for instance).
+        inner.func = inner.__wrapped__ 
         return inner
 
     def extend(name, function=None, _self=cmd):
