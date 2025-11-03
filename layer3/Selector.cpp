@@ -692,16 +692,21 @@ static WordKeyValue Keyword[] = {
 #define SCMP_LTHN 0x02
 #define SCMP_RANG 0x03
 #define SCMP_EQAL 0x04
+#define SCMP_GTEQ 0x05
+#define SCMP_LTEQ 0x06
 
 static WordKeyValue AtOper[] = {
   {">", SCMP_GTHN},
   {"<", SCMP_LTHN},
   {"in", SCMP_RANG},
   {"=", SCMP_EQAL},
+  {"==", SCMP_EQAL},
+  {">=", SCMP_GTEQ},
+  {"<=", SCMP_LTEQ},
   {"", 0}
 };
 
-static short fcmp(float a, float b, int oper) {
+static bool fcmp(float a, float b, int oper) {
   switch (oper) {
   case SCMP_GTHN:
     return (a > b);
@@ -709,6 +714,11 @@ static short fcmp(float a, float b, int oper) {
     return (a < b);
   case SCMP_EQAL:
     return fabs(a - b) < R_SMALL4;
+  case SCMP_GTEQ:
+    return (a >= b);
+  case SCMP_LTEQ:
+    return (a <= b);
+
   }
   printf("ERROR: invalid operator %d\n", oper);
   return false;
@@ -8442,6 +8452,7 @@ static int SelectorSelect2(PyMOLGlobals * G, EvalElem * base, int state)
   base->type = STYP_LIST;
   base->sele_calloc(I->Table.size());
   base->sele_err_chk_ptr(G);
+  
   switch (base->code) {
   case SELE_XVLx:
   case SELE_YVLx:
@@ -8451,6 +8462,8 @@ static int SelectorSelect2(PyMOLGlobals * G, EvalElem * base, int state)
     case SCMP_GTHN:
     case SCMP_LTHN:
     case SCMP_EQAL:
+    case SCMP_GTEQ:
+    case SCMP_LTEQ:
       if(sscanf(base[2].text(), "%f", &comp1) != 1)
         ok = ErrMessage(G, "Selector", "Invalid Number");
       break;
@@ -8487,184 +8500,65 @@ static int SelectorSelect2(PyMOLGlobals * G, EvalElem * base, int state)
             continue;
 
           idx *= 3;
-          switch (base->code) {
-          case SELE_ZVLx:
-            idx++;
-          case SELE_YVLx:
-            idx++;
-          }
+          // Calculate coordinate index based on X/Y/Z
+          if (base->code == SELE_YVLx) idx++;
+          else if (base->code == SELE_ZVLx) idx += 2;
 
           base[0].sele[a] = fcmp(cs->Coord[idx], comp1, oper);
         }
       }
     }
     break;
+    
   case SELE_PCHx:
   case SELE_FCHx:
   case SELE_BVLx:
   case SELE_QVLx:
     oper = WordKey(G, AtOper, base[1].text(), 4, ignore_case, &exact);
-    if(!oper)
+    if(!oper) {
       ok = ErrMessage(G, "Selector", "Invalid Operator.");
-    if(ok) {
-      switch (oper) {
-      case SCMP_GTHN:
-      case SCMP_LTHN:
-      case SCMP_EQAL:
-        if(sscanf(base[2].text(), "%f", &comp1) != 1)
-          ok = ErrMessage(G, "Selector", "Invalid Number");
-        break;
+      break;
+    }
+    
+    switch (oper) {
+    case SCMP_GTHN:
+    case SCMP_LTHN:
+    case SCMP_EQAL:
+    case SCMP_GTEQ:
+    case SCMP_LTEQ:
+      if(sscanf(base[2].text(), "%f", &comp1) != 1) {
+        ok = ErrMessage(G, "Selector", "Invalid Number.");
       }
-      if(ok) {
-        switch (oper) {
-        case SCMP_GTHN:
-          switch (base->code) {
-          case SELE_BVLx:
-            for(a = cNDummyAtoms; a < I->Table.size(); a++) {
-              at1 = &I->Obj[I->Table[a].model]->AtomInfo[I->Table[a].atom];
-              if(at1->b > comp1) {
-                base[0].sele[a] = true;
-                c++;
-              } else {
-                base[0].sele[a] = false;
-              }
-            }
-            break;
-          case SELE_QVLx:
-            for(a = cNDummyAtoms; a < I->Table.size(); a++) {
-              at1 = &I->Obj[I->Table[a].model]->AtomInfo[I->Table[a].atom];
-              if(at1->q > comp1) {
-                base[0].sele[a] = true;
-                c++;
-              } else {
-                base[0].sele[a] = false;
-              }
-            }
-            break;
-          case SELE_PCHx:
-            for(a = cNDummyAtoms; a < I->Table.size(); a++) {
-              at1 = &I->Obj[I->Table[a].model]->AtomInfo[I->Table[a].atom];
-              if(at1->partialCharge > comp1) {
-                base[0].sele[a] = true;
-                c++;
-              } else {
-                base[0].sele[a] = false;
-              }
-            }
-            break;
-          case SELE_FCHx:
-            for(a = cNDummyAtoms; a < I->Table.size(); a++) {
-              at1 = &I->Obj[I->Table[a].model]->AtomInfo[I->Table[a].atom];
-              if(at1->formalCharge > comp1) {
-                base[0].sele[a] = true;
-                c++;
-              } else {
-                base[0].sele[a] = false;
-              }
-            }
-            break;
+      break;
+    default:
+      ok = ErrMessage(G, "Selector", "Invalid Operator.");
+      break;
+    }
+    
+    if(ok) {
+      for(a = cNDummyAtoms; a < I->Table.size(); a++) {
+        at1 = &I->Obj[I->Table[a].model]->AtomInfo[I->Table[a].atom];
+        float atomValue;
+        switch (base->code) {
+          case SELE_BVLx: atomValue = at1->b;             break;
+          case SELE_QVLx: atomValue = at1->q;             break;
+          case SELE_PCHx: atomValue = at1->partialCharge; break;
+          case SELE_FCHx: atomValue = at1->formalCharge;  break;
+          default: {
+            ErrMessage(G, "Selector", "Invalid Operand.");
+            return false;
           }
-          break;
-        case SCMP_LTHN:
-          switch (base->code) {
-          case SELE_BVLx:
-            for(a = cNDummyAtoms; a < I->Table.size(); a++) {
-              at1 = &I->Obj[I->Table[a].model]->AtomInfo[I->Table[a].atom];
-              if(at1->b < comp1) {
-                base[0].sele[a] = true;
-                c++;
-              } else {
-                base[0].sele[a] = false;
-              }
-            }
-            break;
-          case SELE_QVLx:
-            for(a = cNDummyAtoms; a < I->Table.size(); a++) {
-              at1 = &I->Obj[I->Table[a].model]->AtomInfo[I->Table[a].atom];
-              if(at1->q < comp1) {
-                base[0].sele[a] = true;
-                c++;
-              } else {
-                base[0].sele[a] = false;
-              }
-            }
-            break;
-          case SELE_PCHx:
-            for(a = cNDummyAtoms; a < I->Table.size(); a++) {
-              at1 = &I->Obj[I->Table[a].model]->AtomInfo[I->Table[a].atom];
-              if(at1->partialCharge < comp1) {
-                base[0].sele[a] = true;
-                c++;
-              } else {
-                base[0].sele[a] = false;
-              }
-            }
-            break;
-          case SELE_FCHx:
-            for(a = cNDummyAtoms; a < I->Table.size(); a++) {
-              at1 = &I->Obj[I->Table[a].model]->AtomInfo[I->Table[a].atom];
-              if(at1->formalCharge < comp1) {
-                base[0].sele[a] = true;
-                c++;
-              } else {
-                base[0].sele[a] = false;
-              }
-            }
-            break;
-          }
-          break;
-        case SCMP_EQAL:
-          switch (base->code) {
-          case SELE_BVLx:
-            for(a = cNDummyAtoms; a < I->Table.size(); a++) {
-              at1 = &I->Obj[I->Table[a].model]->AtomInfo[I->Table[a].atom];
-              if(fabs(at1->b - comp1) < R_SMALL4) {
-                base[0].sele[a] = true;
-                c++;
-              } else {
-                base[0].sele[a] = false;
-              }
-            }
-            break;
-          case SELE_QVLx:
-            for(a = cNDummyAtoms; a < I->Table.size(); a++) {
-              at1 = &I->Obj[I->Table[a].model]->AtomInfo[I->Table[a].atom];
-              if(fabs(at1->q - comp1) < R_SMALL4) {
-                base[0].sele[a] = true;
-                c++;
-              } else {
-                base[0].sele[a] = false;
-              }
-            }
-            break;
-          case SELE_PCHx:
-            for(a = cNDummyAtoms; a < I->Table.size(); a++) {
-              at1 = &I->Obj[I->Table[a].model]->AtomInfo[I->Table[a].atom];
-              if(fabs(at1->partialCharge - comp1) < R_SMALL4) {
-                base[0].sele[a] = true;
-                c++;
-              } else {
-                base[0].sele[a] = false;
-              }
-            }
-            break;
-          case SELE_FCHx:
-            for(a = cNDummyAtoms; a < I->Table.size(); a++) {
-              at1 = &I->Obj[I->Table[a].model]->AtomInfo[I->Table[a].atom];
-              if(fabs(at1->formalCharge - comp1) < R_SMALL4) {
-                base[0].sele[a] = true;
-                c++;
-              } else {
-                base[0].sele[a] = false;
-              }
-            }
-            break;
-          }
-          break;
         }
-        break;
+        
+        if(fcmp(atomValue, comp1, oper)) {
+          base[0].sele[a] = true;
+          c++;
+        } else {
+          base[0].sele[a] = false;
+        }
       }
     }
+    break;
   }
 
   PRINTFD(G, FB_Selector)
@@ -9910,9 +9804,10 @@ pymol::Result<sele_array_t> SelectorEvaluate(PyMOLGlobals* G,
               if((Stack[depth - 2].level >= Stack[depth - 1].level) &&
                  (Stack[depth - 2].level >= Stack[depth].level)) {
 
-                if(ok && (!opFlag) && (Stack[depth - 2].type == STYP_SEL2)
-                   && (Stack[depth - 1].type == STYP_VALU)
-                   && (Stack[depth].type == STYP_VALU)) {
+                if(ok && (!opFlag)
+                      && (Stack[depth - 2].type == STYP_SEL2)
+                      && (Stack[depth - 1].type == STYP_VALU)
+                      && (Stack[depth - 0].type == STYP_VALU)) {
                   /* 2 argument value operator */
                   ok = SelectorSelect2(G, &Stack[depth - 2], state);
                   opFlag = true;
@@ -10009,8 +9904,9 @@ std::vector<std::string> SelectorParse(PyMOLGlobals * G, const char *s)
   const char *p = s;
   std::string* q = nullptr;
   std::vector<std::string> r;
+  
   while(*p) {
-    if(w_flag) {                /* currently in a word, thus q is a valid pointer */
+    if(w_flag) {
       if(quote_flag) {
         if(*p != quote_char) {
           *q += *p;
@@ -10018,78 +9914,98 @@ std::vector<std::string> SelectorParse(PyMOLGlobals * G, const char *s)
           quote_flag = false;
           *q += *p;
         }
-      } else
+      } else {
         switch (*p) {
-        case ' ':
-          w_flag = false;
-          break;
-        case ';':              /* special word terminator */
-          *q += *p;
-          w_flag = false;
-          break;
-        case '!':              /* single words */
+          case ' ':
+            w_flag = false;
+            break;
+          case ';':
+            *q += *p;
+            w_flag = false;
+            break;
+          case '!':
+          case '&':
+          case '|':
+          case '(':
+          case ')':
+          case '%':
+            r.emplace_back(1, *p);
+            q = &r.back();
+            w_flag = false;
+            break;
+          case '>':
+          case '<':
+          case '=':
+            if (*(p+1) == '=') { // lookahead
+              r.emplace_back();
+              r.back() += *p;
+              r.back() += *(p+1);
+              p++; // skip next '='
+            } else {
+              r.emplace_back(1, *p);
+            }
+            q = &r.back();
+            w_flag = false;
+            break;
+          case '"':
+            quote_flag = true;
+            *q += *p;
+            break;
+          default:
+            *q += *p;
+            break;
+        }
+      }
+    } else {
+      switch (*p) {
+        case '!':
         case '&':
         case '|':
         case '(':
         case ')':
+        case '%':
+          r.emplace_back(1, *p);
+          q = &r.back();
+          break;
         case '>':
         case '<':
         case '=':
-        case '%':
-          r.emplace_back(1, *p); /* add new word */
+          if (*(p+1) == '=') {
+            r.emplace_back();
+            r.back() += *p;
+            r.back() += *(p+1);
+            p++; // lookahead '=' because '>=', '==' and '<='
+          } else {
+            r.emplace_back(1, *p);
+          }
           q = &r.back();
-          w_flag = false;
+          break;
+        case ' ':
           break;
         case '"':
           quote_flag = true;
-          *q += *p;
+          quote_char = *p;
+          w_flag = true;
+          r.emplace_back(1, *p);
+          q = &r.back();
           break;
         default:
-          *q += *p;
+          w_flag = true;
+          r.emplace_back(1, *p);
+          q = &r.back();
           break;
-        }
-    } else {                    /*outside a word -- q is undefined */
-
-      switch (*p) {
-      case '!':                /* single words */
-      case '&':
-      case '|':
-      case '(':
-      case ')':
-      case '>':
-      case '<':
-      case '=':
-      case '%':
-        r.emplace_back(1, *p); /* add new word */
-        q = &r.back();
-        break;
-      case ' ':
-        break;
-      case '"':
-        quote_flag = true;
-        quote_char = *p;
-        w_flag = true;
-        r.emplace_back(1, *p); /* add new word */
-        q = &r.back();
-        break;
-      default:
-        w_flag = true;
-        r.emplace_back(1, *p); /* add new word */
-        q = &r.back();
-        break;
       }
     }
     p++;
   }
-
+  
   if(Feedback(G, FB_Selector, FB_Debugging)) {
     for (auto& word : r) {
       fprintf(stderr, "word: %s\n", word.c_str());
     }
   }
-  return (r);
+  return r;
 }
-
 
 /*========================================================================*/
 
