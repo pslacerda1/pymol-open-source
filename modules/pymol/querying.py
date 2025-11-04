@@ -137,8 +137,12 @@ DESCRIPTION
     something to do with querying the objects covered by a selection.
     '''
         selection = selector.process(selection)
+        if selection.strip() == "":
+            raise pymol.CmdException("Empty selections or containing only spaces are invalid.")
         with _self.lockcm:
             r = _cmd.get_object_list(_self._COb,str(selection))
+            if r is None:
+                raise pymol.CmdException('Invalid selection.')
             if not quiet:
                 if(is_list(r)):
                     print(" get_object_list: ",str(r))

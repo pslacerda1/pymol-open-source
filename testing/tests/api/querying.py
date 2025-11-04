@@ -339,6 +339,9 @@ class TestQuerying(testing.PyMOLTestCase):
         cmd.ramp_new('ramp1', 'none')  # non-molecular object
         self.assertEqual(cmd.get_object_list(), ['gly', 'cys'])
         self.assertEqual(cmd.get_object_list('elem S'), ['cys'])
+        for sele in ['', ' ', 'www.@']:
+            with self.assertRaises(CmdException):
+                cmd.get_object_list(sele)
 
     @testing.requires_version('1.6')
     def testGetObjectMatrix(self):
