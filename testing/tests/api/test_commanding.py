@@ -53,8 +53,8 @@ def test_path(capsys):
 def test_any(capsys):
     @cmd.new_command
     def func5(old_style: Any):
-        assert old_style != "RuntimeError"
-    func5(RuntimeError)
+        assert old_style is "RuntimeError"
+    func5("RuntimeError")
     cmd.do("func5 RuntimeError")
     out, err = capsys.readouterr()
     assert 'AssertionError' in out+err
