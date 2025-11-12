@@ -1,3 +1,4 @@
+import sys
 import tempfile
 from PIL import Image
 import numpy
@@ -129,5 +130,13 @@ def requires_version(version, reason=None):
         return pytest.mark.skipif(
             not compatible_with(version),
             reason=reason or f"Requires PyMOL {version}"
+        )(test_func)
+    return decorator
+
+def requires_python(python_version, reason=None):
+    def decorator(test_func):
+        return pytest.mark.skipif(
+            sys.version_info < python_version,
+            reason=reason
         )(test_func)
     return decorator

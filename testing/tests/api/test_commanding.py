@@ -1,7 +1,9 @@
 from pytest import mark
 from pymol import cmd
+import sys
 from typing import List, Union, Any, Tuple
 from pathlib import Path
+from pymol import test_utils
 
 
 def test_docstring():
@@ -91,9 +93,12 @@ def test_default(capsys):
     out, err = capsys.readouterr()
     assert out + err == ''
 
+@mark.skipif(
+    sys.version_info < (3, 11),
+    reason="Requires StrEnum of Python 3.11+"
+)
 def test_str_enum(capsys):
-    # TODO Fix imports requires
-    from strenum import StrEnum
+    from enum import StrEnum
     class E(StrEnum):
         A = "a"
     @cmd.new_command
