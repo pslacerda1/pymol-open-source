@@ -2,7 +2,6 @@ from pytest import mark
 from pymol import cmd
 from typing import List, Union, Any, Tuple
 from pathlib import Path
-from enum import StrEnum
 
 
 def test_docstring():
@@ -93,6 +92,8 @@ def test_default(capsys):
     assert out + err == ''
 
 def test_str_enum(capsys):
+    # TODO Fix imports requires
+    from strenum import StrEnum
     class E(StrEnum):
         A = "a"
     @cmd.new_command
